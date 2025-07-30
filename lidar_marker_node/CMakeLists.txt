@@ -32,6 +32,8 @@ include_directories(
 
 
 add_executable(process_pcd src/process_pcd.cpp)
+add_executable(process_image src/process_image.cpp)
+
 
 
 target_link_libraries(process_pcd 
@@ -46,5 +48,8 @@ target_link_libraries(process_pcd
   pcl_search
 )
 
-
+target_link_libraries(process_image 
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+)
 
