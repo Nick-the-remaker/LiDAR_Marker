@@ -464,6 +464,7 @@ int main(int argc, char **argv)
             return -1;
         }
         else{
+
             cv::Mat frame;
             while (cap.read(frame))
             {
@@ -472,9 +473,9 @@ int main(int argc, char **argv)
                     cv::Mat rvec, tvec;
                     int code_index = -1;
                     find_lidar_marker_image(frame, camera_matrix, camera_distcoeffs, rvec, tvec, 0.08, true, code_index);
-                    std::cout << "code_index: " << code_index << std::endl;
+                    // std::cout << "code_index: " << code_index << std::endl;
                     cv::imshow("Video Frame", frame);
-                    cv::waitKey(1);
+                    cv::waitKey(20);
                 }
                 else
                 {
