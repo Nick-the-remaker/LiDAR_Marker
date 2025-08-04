@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <tuple>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/objdetect.hpp>
@@ -42,6 +43,136 @@ cv::Point2f calculateExtendedPoint(const cv::Point2f &start,
     cv::Point2f extendedPoint = end + unitVector * extensionDistance;
 
     return extendedPoint;
+}
+
+// Calculate syndrome (s0, s1, s2)
+std::tuple<bool, bool, bool> computeSyndrome(const std::string &code)
+{
+    // Extract grid data
+    char A = code[0];
+    char B = code[1];
+    char C = code[2];
+    char d3 = code[3]; // Second row, first data bit
+    char d4 = code[4]; // Second row, second data bit
+    char d5 = code[5]; // Second row, third data bit
+    char d6 = code[6]; // Third row, first data bit
+    char d7 = code[7]; // Third row, second data bit
+    char d8 = code[8]; // Third row, third data bit
+
+    // Calculate expected value for each parity bit
+    char A_calc = ((d4 - '0') + (d5 - '0') + (d7 - '0') + (d8 - '0')) % 2 + '0';
+    char B_calc = ((d3 - '0') + (d5 - '0') + (d6 - '0') + (d8 - '0')) % 2 + '0';
+    char C_calc = ((d3 - '0') + (d4 - '0') + (d5 - '0')) % 2 + '0';
+
+    // Calculate syndrome
+    bool s0 = (A != A_calc);
+    bool s1 = (B != B_calc);
+    bool s2 = (C != C_calc);
+
+    return std::make_tuple(s0, s1, s2);
+}
+
+// Hamming code check and correction function
+bool hammingCheck(const std::string &input, std::string &output)
+{
+    // Check input length
+    if (input.length() != 9)
+    {
+        std::cerr << "Error: Input string must be 9 characters long." << std::endl;
+        output = input;
+        return false;
+    }
+
+    // Calculate syndrome
+    auto [s0, s1, s2] = computeSyndrome(input);
+
+    // No error
+    if (!s0 && !s1 && !s2)
+    {
+        output = input;
+    }
+
+    // Try to locate error position
+    int errorPos = -1;
+
+    // Determine error position based on syndrome
+    if (s0 && s1 && s2)
+    {
+        errorPos = 5; // Second row, third data bit
+    }
+    else if (s0 && s1 && !s2)
+    {
+        errorPos = 8; // Third row, third data bit
+    }
+    else if (s0 && !s1 && s2)
+    {
+        errorPos = 4; // Second row, second data bit
+    }
+    else if (!s0 && s1 && s2)
+    {
+        errorPos = 3; // Second row, first data bit
+    }
+    else if (!s0 && !s1 && s2)
+    {
+        errorPos = 2; // Parity bit C
+    }
+    else if (s0 && !s1 && !s2)
+    {
+        // Could be parity bit A or data bit d7
+        // Try flipping parity bit A
+        std::string temp = input;
+        temp[0] = (temp[0] == '0') ? '1' : '0';
+        if (marker_codes.find(temp) != marker_codes.end())
+        {
+            output = temp;
+        }
+        else
+        { // Otherwise flip data bit d7
+            temp = input;
+            temp[7] = (temp[7] == '0') ? '1' : '0';
+            if (marker_codes.find(temp) != marker_codes.end())
+            {
+                output = temp;
+            }
+        }
+    }
+    else if (!s0 && s1 && !s2)
+    {
+        // Could be parity bit B or data bit d6
+        // Try flipping parity bit B
+
+        std::string temp = input;
+        temp[1] = (temp[1] == '0') ? '1' : '0';
+        if (marker_codes.find(temp) != marker_codes.end())
+        {
+            output = temp;
+        }
+        else
+        { // Otherwise flip data bit d7
+            temp = input;
+            temp[6] = (temp[6] == '0') ? '1' : '0';
+            if (marker_codes.find(temp) != marker_codes.end())
+            {
+                output = temp;
+            }
+        }
+    }
+
+    // If a definite error position is found, correct it
+    if (errorPos != -1)
+    {
+        output = input;
+        output[errorPos] = (output[errorPos] == '0') ? '1' : '0';
+    }
+
+    if (marker_codes.find(output) != marker_codes.end())
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 // turn 3x3 grid into a string
@@ -139,16 +270,23 @@ void decode(cv::Mat &image, std::vector<cv::Point2f> &rect, std::vector<cv::Poin
     }
 
     std::string s0 = gridToString(grid);
-    if (marker_codes.find(s0) != marker_codes.end())
+    std::string s0_output, s90_output, s180_output, s270_output;
+    hammingCheck(s0, s0_output);
+
+    // rotate 90 degrees clockwise
+    std::vector<std::vector<int>> grid90 = rotate90(grid);
+    std::string s90 = gridToString(grid90);
+    hammingCheck(s0, s90_output);
+
+    /// 改 hammingcheck和搜索合在一起
+
+    if (marker_codes.find(s0_output) != marker_codes.end())
     {
         // cout << "0 degree: " << s0 << endl;
         new_corner = getRotatedRectCorners(rect, 90);
         codeIndex = marker_codes[s0];
     }
 
-    // rotate 90 degrees clockwise
-    std::vector<std::vector<int>> grid90 = rotate90(grid);
-    std::string s90 = gridToString(grid90);
     if (marker_codes.find(s90) != marker_codes.end())
     {
         // cout << "90 degree: " << s90 << endl;
@@ -177,7 +315,7 @@ void decode(cv::Mat &image, std::vector<cv::Point2f> &rect, std::vector<cv::Poin
     }
 }
 
-void find_lidar_marker_image(cv::Mat &input_image, cv::InputArray cameraMatrix, cv::InputArray distCoeffs, cv::OutputArray rvec, cv::OutputArray tvec, float markerLength, bool draw_axis, int& code_index)
+void find_lidar_marker_image(cv::Mat &input_image, cv::InputArray cameraMatrix, cv::InputArray distCoeffs, cv::OutputArray rvec, cv::OutputArray tvec, float markerLength, bool draw_axis, int &code_index)
 {
     cv::Mat objPoints(4, 1, CV_32FC3);
     cv::Mat image_clone, image_thre;
@@ -310,7 +448,6 @@ void find_lidar_marker_image(cv::Mat &input_image, cv::InputArray cameraMatrix, 
                         {
                             std::vector<cv::Point2f> rect_corners;
                             decode(black_border, black_corner_pts, rect_corners, code_index);
-                            
 
                             objPoints.ptr<cv::Vec3f>(0)[0] = cv::Vec3f(-markerLength / 2.f, markerLength / 2.f, 0);
                             objPoints.ptr<cv::Vec3f>(0)[1] = cv::Vec3f(markerLength / 2.f, markerLength / 2.f, 0);
@@ -326,13 +463,12 @@ void find_lidar_marker_image(cv::Mat &input_image, cv::InputArray cameraMatrix, 
                                     line(input_image, black_corner_pts[j], black_corner_pts[(j + 1) % 4], cv::Scalar(0, 255, 0), 2, 8);
                                     cv::circle(input_image, black_corner_pts[j], 5, cv::Scalar(0, 0, 255), -1);
                                     cv::drawFrameAxes(input_image, cameraMatrix, distCoeffs, rvec, tvec, markerLength * 1.2f, 2);
-                                    cv::putText(input_image, "id = "+std::to_string(code_index), cv::Point(black_corner_pts[0].x, black_corner_pts[0].y -20), cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+                                    cv::putText(input_image, "id = " + std::to_string(code_index), cv::Point(black_corner_pts[0].x, black_corner_pts[0].y - 20), cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
                                 }
                             }
 
                             // cv::imshow("DstImg", DstImg);
                         }
-
                     }
                 }
             }
@@ -361,12 +497,11 @@ int main(int argc, char **argv)
         "111100010", "001100011", "111100101", "011100111", "100101000",
         "010101001", "000101010", "110101100", "010101110", "100101111",
         "010110010", "100110011", "100110100", "010110101", "001111000",
-        "111111001", "101111010", "011111011", "011111100", "111111110"
-    };
-    
+        "111111001", "101111010", "011111011", "011111100", "111111110"};
 
-    for (int i = 0; i < codes.size(); i++) {
-        marker_codes[codes[i]] = i; 
+    for (int i = 0; i < codes.size(); i++)
+    {
+        marker_codes[codes[i]] = i + 1;
     }
 
     if (!nh.getParam("Camera_K", Camera_K))
@@ -428,7 +563,8 @@ int main(int argc, char **argv)
     std::cout << "camera_distcoeffs: " << camera_distcoeffs << std::endl;
 
     // glob all the photos in the image_path
-    if(use_image){
+    if (use_image)
+    {
 
         std::vector<cv::String> image_files;
         cv::glob(image_path, image_files, false);
@@ -451,19 +587,23 @@ int main(int argc, char **argv)
             cv::Mat rvec, tvec;
             int code_id = -1;
             find_lidar_marker_image(input_image, camera_matrix, camera_distcoeffs, rvec, tvec, 0.48, true, code_id);
-            std::cout<<"code_id "<<code_id<<std::endl;
+            std::cout << "code_id " << code_id << std::endl;
             cv::imshow("Input Image", input_image);
-            cv::waitKey(0); 
+            cv::waitKey(0);
             // process rvec and tvec as needed
         }
-    } else {
+    }
+    else
+    {
         // handle video processing
         cv::VideoCapture cap(video_path);
-        if (!cap.isOpened()){
+        if (!cap.isOpened())
+        {
             ROS_ERROR("Failed to open video file: %s", video_path.c_str());
             return -1;
         }
-        else{
+        else
+        {
 
             cv::Mat frame;
             while (cap.read(frame))
@@ -481,11 +621,8 @@ int main(int argc, char **argv)
                 {
                     ROS_WARN("Empty frame encountered in video stream.");
                 }
-                
             }
-
         }
-
     }
 
     ros::spinOnce();

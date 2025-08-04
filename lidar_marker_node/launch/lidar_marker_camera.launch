@@ -2,7 +2,7 @@
     <param name="Camera_K" type="yaml" value="[912.1531982421875, 0.0, 652.1595458984375, 0.0, 911.8236083984375, 360.1410217285156, 0.0, 0.0, 1.0]" />
     <param name="Camera_D" type="yaml" value="[0.0, 0.0, 0.0, 0.0, 0.0]" />
 
-    <param name="input_image_path"       value="$(find lidar_marker)/test/" />
+    <param name="input_image_path"       value="$(find lidar_marker)/test/images/" />
     <param name="input_video_path"       value="$(find lidar_marker)/test/video/test1.mp4" />
 
     <!-- true for image, false for video -->

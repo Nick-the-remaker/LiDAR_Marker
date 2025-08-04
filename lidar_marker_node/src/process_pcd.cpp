@@ -30,7 +30,6 @@
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
 
-
 #include <opencv2/opencv.hpp>
 
 #include <tf2_msgs/TFMessage.h>
@@ -374,7 +373,6 @@ int find_split_threshold(vector<int> &numbers)
         throw std::invalid_argument("The input number list is empty.");
     }
 
-
     std::sort(numbers.begin(), numbers.end());
 
     double mean = std::accumulate(numbers.begin(), numbers.end(), 0.0) / numbers.size();
@@ -392,7 +390,8 @@ int find_split_threshold(vector<int> &numbers)
         }
     }
     // cout<<endl<<threshold<<endl;
-    return threshold;
+    return 45;
+    // return threshold;
 }
 
 void update_index(int idx,
@@ -522,9 +521,16 @@ bool analyzeSquareFit(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
     {
         return false;
     }
-    else
+    else if (!corners.empty())
     {
-        return true;
+        float side_length = sqrt(pow((corners[0][0] - corners[1][0]), 2) + pow((corners[0][1] - corners[1][1]), 2) + pow((corners[0][2] - corners[1][2]), 2));
+        cout << "side_length " << side_length << endl;
+        if (side_length > 0.36 && side_length < 0.48)
+        {
+            return true;
+        }
+        else
+            return false;
     }
 }
 
@@ -543,7 +549,7 @@ int main()
     // visualization
     pcl::visualization::PCLVisualizer viewer("RegionGrowing Viewer");
 
-    pcl::io::loadPCDFile("/home/ub/log_folder/pcd_log/vicon_normal1.pcd", *cloud);
+    pcl::io::loadPCDFile("/home/tdt/log_folder/pcd_log/vicon_normal1.pcd", *cloud);
 
     float search_radius = 0.06; // 0.04 0.05
     float thresh_radius = 0.08; 
@@ -749,6 +755,8 @@ int main()
             if (params.center.x() < 0 && params.center.x() > -0.4 && params.center.y() < 3 && params.center.z() > 0.2 && params.center.z() < 1 && analyzeSquareFit(boundary_cloud, params, corners))
             //  if(analyzeSquareFit(boundary_cloud, params, corners))
             {
+                pcl::io::savePCDFileASCII("/home/tdt/log_folder/pcd_log/new/"+std::to_string(segment_laber)+".pcd", *tmp_cloud_XYZ);
+
                 cout << "center " << params.center << endl;
 
                 pcl::PointCloud<pcl::PointXYZ>::Ptr box_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -868,13 +876,11 @@ int main()
     auto end = chrono::high_resolution_clock::now();
     cout << "total time " << chrono::duration_cast<chrono::milliseconds>(end - start).count() << endl;
 
-    // pcl::io::savePCDFileASCII("/home/ub/log_folder/pcd_log/wer.pcd", *save_cloud);
-
     cout << "seg_num:" << segmen_num.size() << endl;
     pcl::visualization::PointCloudColorHandlerGenericField<pcl::PointXYZI> intensity_color(cloud, "intensity");
-    // viewer.addPointCloud(cloud_color);
-    viewer.addPointCloud(cloud, intensity_color, "original cloud");
-    viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "original cloud");
+    viewer.addPointCloud(cloud_color);
+    // viewer.addPointCloud(cloud, intensity_color, "original cloud");
+    // viewer.setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "original cloud");
 
     while (!viewer.wasStopped())
     {
