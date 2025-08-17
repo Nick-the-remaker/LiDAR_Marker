@@ -2,13 +2,16 @@
     <param name="Camera_K" type="yaml" value="[912.1531982421875, 0.0, 652.1595458984375, 0.0, 911.8236083984375, 360.1410217285156, 0.0, 0.0, 1.0]" />
     <param name="Camera_D" type="yaml" value="[0.0, 0.0, 0.0, 0.0, 0.0]" />
 
-    <param name="input_image_path"       value="$(find lidar_marker)/test/images/" />
+    <param name="input_image_path"       value="$(find lidar_marker)/test/images/hamming_error_correction_images/" />
+    <!-- <param name="input_image_path"       value="$(find lidar_marker)/3x3_markers/" /> -->
     <param name="input_video_path"       value="$(find lidar_marker)/test/video/test1.mp4" />
 
     <!-- true for image, false for video -->
-    <param name="use_image" type="bool" value="false" />
+    <param name="use_image" type="bool" value="true" />
 
-    
+    <!-- Hamming error correction, make sure the marker is placed in the right direction -->
+    <param name="use_Hamming_check" type="bool" value="true" />
+
     <node name="use_camera" pkg="lidar_marker" type="process_image" output="screen"/>
           
 </launch>

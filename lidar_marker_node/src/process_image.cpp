@@ -8,6 +8,9 @@
 
 std::unordered_map<std::string, int> marker_codes;
 
+std::unordered_map<std::string, int> hamming_marker_codes;
+
+
 static double angle(cv::Point pt1, cv::Point pt2, cv::Point pt0)
 {
     double dx1 = pt1.x - pt0.x;
@@ -83,12 +86,15 @@ bool hammingCheck(const std::string &input, std::string &output)
         return false;
     }
 
+    std::cout<< "Input: " << input << std::endl;
+
     // Calculate syndrome
     auto [s0, s1, s2] = computeSyndrome(input);
 
     // No error
     if (!s0 && !s1 && !s2)
     {
+        // std::cout<< "No error detected." << std::endl;
         output = input;
     }
 
@@ -122,16 +128,18 @@ bool hammingCheck(const std::string &input, std::string &output)
         // Try flipping parity bit A
         std::string temp = input;
         temp[0] = (temp[0] == '0') ? '1' : '0';
-        if (marker_codes.find(temp) != marker_codes.end())
+        if (hamming_marker_codes.find(temp) != hamming_marker_codes.end())
         {
+            errorPos = 0;
             output = temp;
         }
         else
         { // Otherwise flip data bit d7
             temp = input;
             temp[7] = (temp[7] == '0') ? '1' : '0';
-            if (marker_codes.find(temp) != marker_codes.end())
+            if (hamming_marker_codes.find(temp) != hamming_marker_codes.end())
             {
+                errorPos = 7;
                 output = temp;
             }
         }
@@ -143,16 +151,18 @@ bool hammingCheck(const std::string &input, std::string &output)
 
         std::string temp = input;
         temp[1] = (temp[1] == '0') ? '1' : '0';
-        if (marker_codes.find(temp) != marker_codes.end())
+        if (hamming_marker_codes.find(temp) != hamming_marker_codes.end())
         {
+            errorPos = 1;
             output = temp;
         }
         else
         { // Otherwise flip data bit d7
             temp = input;
             temp[6] = (temp[6] == '0') ? '1' : '0';
-            if (marker_codes.find(temp) != marker_codes.end())
+            if (hamming_marker_codes.find(temp) != hamming_marker_codes.end())
             {
+                errorPos = 6;
                 output = temp;
             }
         }
@@ -162,9 +172,10 @@ bool hammingCheck(const std::string &input, std::string &output)
     if (errorPos != -1)
     {
         output = input;
+        std::cout << "Error detected at position: " << errorPos << std::endl;
         output[errorPos] = (output[errorPos] == '0') ? '1' : '0';
     }
-
+    
     if (marker_codes.find(output) != marker_codes.end())
     {
         return true;
@@ -235,7 +246,7 @@ std::vector<cv::Point2f> getRotatedRectCorners(std::vector<cv::Point2f> &rect, i
     }
 }
 
-void decode(cv::Mat &image, std::vector<cv::Point2f> &rect, std::vector<cv::Point2f> &new_corner, int &codeIndex)
+void decode(cv::Mat &image, std::vector<cv::Point2f> &rect, std::vector<cv::Point2f> &new_corner, bool Hamming_check_, int &codeIndex)
 {
     int gridWidth = image.cols / 3;
     int gridHeight = image.rows / 3;
@@ -271,51 +282,55 @@ void decode(cv::Mat &image, std::vector<cv::Point2f> &rect, std::vector<cv::Poin
 
     std::string s0 = gridToString(grid);
     std::string s0_output, s90_output, s180_output, s270_output;
-    hammingCheck(s0, s0_output);
-
     // rotate 90 degrees clockwise
     std::vector<std::vector<int>> grid90 = rotate90(grid);
     std::string s90 = gridToString(grid90);
-    hammingCheck(s0, s90_output);
 
-    /// 改 hammingcheck和搜索合在一起
-
-    if (marker_codes.find(s0_output) != marker_codes.end())
-    {
-        // cout << "0 degree: " << s0 << endl;
-        new_corner = getRotatedRectCorners(rect, 90);
-        codeIndex = marker_codes[s0];
-    }
-
-    if (marker_codes.find(s90) != marker_codes.end())
-    {
-        // cout << "90 degree: " << s90 << endl;
-        new_corner = getRotatedRectCorners(rect, 180);
-        codeIndex = marker_codes[s90];
-    }
-
-    // rotate 180 degrees
     std::vector<std::vector<int>> grid180 = rotate90(grid90);
     std::string s180 = gridToString(grid180);
-    if (marker_codes.find(s180) != marker_codes.end())
-    {
-        // cout << "180 degree: " << s180 << endl;
-        new_corner = getRotatedRectCorners(rect, 270);
-        codeIndex = marker_codes[s180];
-    }
 
-    // rotate 270 degrees
     std::vector<std::vector<int>> grid270 = rotate90(grid180);
     std::string s270 = gridToString(grid270);
+
+    if (marker_codes.find(s0) != marker_codes.end())
+    {
+        // std::cout << "0 degree: " << s0_output << std::endl;
+        new_corner = getRotatedRectCorners(rect, 0);
+        codeIndex = marker_codes[s0];
+    }
+    if (marker_codes.find(s90) != marker_codes.end())
+    {
+        // std::cout << "90 degree: " << s90 << std::endl;
+        new_corner = getRotatedRectCorners(rect, 90);
+        codeIndex = marker_codes[s90];
+    }
+    if (marker_codes.find(s180) != marker_codes.end())
+    {
+        // std::cout << "180 degree: " << s180 << std::endl;
+        new_corner = getRotatedRectCorners(rect, 180);
+        codeIndex = marker_codes[s180];
+    }
     if (marker_codes.find(s270) != marker_codes.end())
     {
-        // cout << "270 degree: " << s270 << endl;
-        new_corner = getRotatedRectCorners(rect, 0);
+        // std::cout << "270 degree: " << s270 << std::endl;
+        new_corner = getRotatedRectCorners(rect, 270);
         codeIndex = marker_codes[s270];
+    }
+
+    // if use Hamming_check, make sure the marker is placed in the right direction
+    if (Hamming_check_)
+    {
+        std::string s0_output;
+        if (hammingCheck(s0, s0_output))
+        {
+            // std::cout << "0 degree: " << s0_output << std::endl;
+            new_corner = getRotatedRectCorners(rect, 0);
+            codeIndex = hamming_marker_codes[s0_output];
+        }
     }
 }
 
-void find_lidar_marker_image(cv::Mat &input_image, cv::InputArray cameraMatrix, cv::InputArray distCoeffs, cv::OutputArray rvec, cv::OutputArray tvec, float markerLength, bool draw_axis, int &code_index)
+void find_lidar_marker_image(cv::Mat &input_image, cv::InputArray cameraMatrix, cv::InputArray distCoeffs, cv::OutputArray rvec, cv::OutputArray tvec, float markerLength, bool draw_axis, bool Hamming_check, int &code_index)
 {
     cv::Mat objPoints(4, 1, CV_32FC3);
     cv::Mat image_clone, image_thre;
@@ -447,7 +462,7 @@ void find_lidar_marker_image(cv::Mat &input_image, cv::InputArray cameraMatrix, 
                         if (white_border_count_rate > 0.9 && black_border_count_rate < 0.1)
                         {
                             std::vector<cv::Point2f> rect_corners;
-                            decode(black_border, black_corner_pts, rect_corners, code_index);
+                            decode(black_border, black_corner_pts, rect_corners, Hamming_check, code_index);
 
                             objPoints.ptr<cv::Vec3f>(0)[0] = cv::Vec3f(-markerLength / 2.f, markerLength / 2.f, 0);
                             objPoints.ptr<cv::Vec3f>(0)[1] = cv::Vec3f(markerLength / 2.f, markerLength / 2.f, 0);
@@ -487,6 +502,7 @@ int main(int argc, char **argv)
     std::string image_path;
     std::string video_path;
     bool use_image;
+    bool use_Hamming_check;
 
     std::vector<std::string> codes = {
         "100000010", "010000011", "010000100", "100000101", "111001000",
@@ -499,10 +515,20 @@ int main(int argc, char **argv)
         "010110010", "100110011", "100110100", "010110101", "001111000",
         "111111001", "101111010", "011111011", "011111100", "111111110"};
 
+    std::vector<std::string> hamming_codes = {
+        "100000010","010000011","010000100","100000101","111001000","101001011","001001110","011010001","111010100","101010111","100011001","110011010","000011100","010011111","101100001","111100010","011100111","010101001","000101010","110101100","100101111","010110010","100110011","010110101","001111000","011111011","111111110"};
+
     for (int i = 0; i < codes.size(); i++)
     {
         marker_codes[codes[i]] = i + 1;
     }
+
+    for (int i = 0; i < hamming_codes.size(); i++)
+    {
+        hamming_marker_codes[hamming_codes[i]] = i + 1;
+    }
+
+    
 
     if (!nh.getParam("Camera_K", Camera_K))
     {
@@ -534,6 +560,12 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    if (!nh.getParam("use_Hamming_check", use_Hamming_check))
+    {
+        ROS_ERROR("Failed to get param 'use_Hamming_check'");
+        return -1;
+    }
+
     // verify camera_k and camera_d
     if (Camera_K.size() != 9)
     {
@@ -557,6 +589,7 @@ int main(int argc, char **argv)
 
     std::cout << "get param: " << std::endl;
     std::cout << "use_image: " << use_image << std::endl;
+    std::cout << "use_Hamming_check: " << use_Hamming_check << std::endl;
     std::cout << "image_path: " << image_path << std::endl;
     std::cout << "video_path: " << video_path << std::endl;
     std::cout << "camera_matrix: " << camera_matrix << std::endl;
@@ -586,7 +619,7 @@ int main(int argc, char **argv)
 
             cv::Mat rvec, tvec;
             int code_id = -1;
-            find_lidar_marker_image(input_image, camera_matrix, camera_distcoeffs, rvec, tvec, 0.48, true, code_id);
+            find_lidar_marker_image(input_image, camera_matrix, camera_distcoeffs, rvec, tvec, 0.48, true, use_Hamming_check, code_id);
             std::cout << "code_id " << code_id << std::endl;
             cv::imshow("Input Image", input_image);
             cv::waitKey(0);
@@ -612,10 +645,10 @@ int main(int argc, char **argv)
                 {
                     cv::Mat rvec, tvec;
                     int code_index = -1;
-                    find_lidar_marker_image(frame, camera_matrix, camera_distcoeffs, rvec, tvec, 0.08, true, code_index);
+                    find_lidar_marker_image(frame, camera_matrix, camera_distcoeffs, rvec, tvec, 0.08, true, use_Hamming_check, code_index);
                     // std::cout << "code_index: " << code_index << std::endl;
                     cv::imshow("Video Frame", frame);
-                    cv::waitKey(20);
+                    cv::waitKey(0);
                 }
                 else
                 {
