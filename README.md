@@ -1,7 +1,14 @@
 # LiDAR Marker: An Intensity-Based Region Growing Fiducial Marker System for LiDAR
+<!-- <img src="lidar_marker_node/images/cover.gif" width = "820" alt="center" align=center /> -->
+
+<div align="center">
+  <img src="lidar_marker_node/images/cover.gif" alt="cover" width="820">
+</div>
 
 ## Overview
 This repository is for the intensity-based region growing fiducial LiDAR Marker system.
+
+
 
 <img src="lidar_marker_node/images/pipeline.png" width = "820" height = "800" alt="pipeline" align=center />
 
@@ -12,8 +19,6 @@ This repository is for the intensity-based region growing fiducial LiDAR Marker 
   - Boost Thread
   - OpenCV
 
-## Dataset
-You can find the data used in the paper through this link: [Dataset](https://1drv.ms/f/c/ec46e108ef532789/IgDHSRTRGeXZSZOxd2pVpqYfAY4vv_Xx3XKEnGDQ676mpms?e=L2kh8s).
 
 ## Compilation
 ```bash
