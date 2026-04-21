@@ -16,13 +16,13 @@ This system is developed by learning from both the strengths and limitations of 
 1. The marker **does not need to be placed separately**. Users can deploy it based on their application needs.
 2. The system uses an intensity-based region growing method, which **enables detection in complex backgrounds**.
 3. The system uses a geometry-constrained OBB fitting method to **estimate the optimized marker pose**.
-4. The system develops a spherical angular-radial neighbor search method. Compared with common point cloud nearest neighbor search methods, such as KD-Tree and Octree, this method achieves **faster k-nearest neighbor search time without relying on GPU or other third-party libraries**.
+4. The system develops a spherical angular-radial neighbor search method. Compared with common point cloud nearest neighbor search methods, such as KD-Tree and Octree, this method achieves **shorter  k-nearest neighbor search time without relying on GPU or other third-party libraries**.
 
 <p align="center">
   <img src="lidar_marker_node/images/pipeline.png" alt="region_growth" width="820">
 </p>
 <p align="center">
-  <em>Figure 1. Visualization of the intensity-based region growing method.</em>
+  <em>Figure 1. Overview of the LiDAR Marker pipeline.</em>
 </p>
 
 <p align="center">
